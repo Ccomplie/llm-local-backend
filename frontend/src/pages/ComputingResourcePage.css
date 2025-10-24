@@ -1,0 +1,98 @@
+.computing-resource-page {
+  padding: 24px;
+  background: #f0f2f5;
+  min-height: 100vh;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.page-header h2 {
+  margin: 0;
+  color: #1f1f1f;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.stats-overview {
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  transition: all 0.3s;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+.stat-title {
+  color: #666;
+  font-size: 14px;
+}
+
+.stat-icon {
+  margin-right: 8px;
+  color: #1890ff;
+}
+
+.chart-card,
+.table-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  margin-bottom: 24px;
+}
+
+.card-title {
+  color: #1f1f1f;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.custom-table {
+  background: white;
+}
+
+.custom-table .ant-table-thead > tr > th {
+  background: #fafafa;
+  font-weight: 500;
+}
+
+.custom-table .running-row {
+  background: rgba(24,144,255,0.05);
+}
+
+.custom-table .ant-table-row:hover {
+  background: rgba(24,144,255,0.1) !important;
+}
+
+/* Progress bar customization */
+.ant-progress-bg {
+  transition: all 0.3s;
+}
+
+/* Modal customization */
+.ant-modal-content {
+  border-radius: 8px;
+}
+
+.ant-modal-header {
+  border-radius: 8px 8px 0 0;
+}
+
+/* Button hover effects */
+.ant-btn {
+  transition: all 0.3s;
+}
+
+.ant-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}

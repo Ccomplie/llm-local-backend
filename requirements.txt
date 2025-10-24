@@ -1,0 +1,31 @@
+# 核心框架
+fastapi>=0.100.0
+uvicorn[standard]>=0.20.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# 基础模型支持（简化版本）
+torch>=2.0.0
+transformers>=4.30.0
+tokenizers>=0.13.0
+sentencepiece>=0.1.99
+
+# 数据库和存储
+sqlalchemy>=2.0.0
+aiosqlite>=0.19.0
+
+# WebSocket和实时通信
+websockets>=11.0
+sse-starlette>=1.6.0
+
+# 工具库
+numpy>=1.21.0
+requests>=2.28.0
+httpx>=0.24.0
+python-multipart>=0.0.5
+
+# 日志和监控
+loguru>=0.7.0
+
+# 系统监控
+psutil>=5.9.0

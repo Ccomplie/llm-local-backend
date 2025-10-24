@@ -1,0 +1,107 @@
+/* 明亮主题 - 护眼模式 */
+.light-theme {
+  --bg-primary: #f5f6f7;
+  --bg-secondary: #edf0f2;
+  --text-primary: #2c3e50;
+  --text-secondary: #34495e;
+  --border-color: #e2e8f0;
+  --menu-bg: #ffffff;
+  --card-bg: #ffffff;
+  --shadow: rgba(0, 0, 0, 0.05);
+}
+
+/* 暗黑主题 - 护眼模式 */
+.dark-theme {
+  --bg-primary: #1a1b1e;
+  --bg-secondary: #2c2e33;
+  --text-primary: #e5e7eb;
+  --text-secondary: #9ca3af;
+  --border-color: #374151;
+  --menu-bg: #1f2937;
+  --card-bg: #1f2937;
+  --shadow: rgba(0, 0, 0, 0.2);
+}
+
+/* 全局过渡效果 */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Ant Design 组件样式覆盖 */
+.ant-layout {
+  background: var(--bg-primary);
+}
+
+.ant-layout-header {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 1px 2px var(--shadow);
+}
+
+.ant-layout-sider {
+  background: var(--menu-bg) !important;
+}
+
+.ant-layout-content {
+  background: var(--bg-secondary);
+}
+
+.ant-card {
+  background: var(--card-bg);
+  border-color: var(--border-color);
+  box-shadow: 0 2px 4px var(--shadow);
+}
+
+.ant-table {
+  background: var(--card-bg);
+}
+
+.ant-table-thead > tr > th {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+}
+
+.ant-table-tbody > tr > td {
+  background: var(--card-bg);
+  color: var(--text-primary);
+}
+
+.ant-input, .ant-select-selector {
+  background: var(--bg-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.ant-btn {
+  background: var(--card-bg);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.ant-menu {
+  background: var(--menu-bg) !important;
+}
+
+/* 明亮主题下的菜单样式 */
+.ant-menu.ant-menu-light {
+  color: #2c3e50;
+}
+
+.ant-menu.ant-menu-light .ant-menu-item-selected {
+  background-color: #e6f7ff;
+  color: #3b82f6;
+}
+
+.ant-menu.ant-menu-light .ant-menu-item:hover {
+  color: #3b82f6;
+}
+
+/* Sider 背景色 */
+.ant-layout-sider-light {
+  background: var(--bg-primary) !important;
+}
