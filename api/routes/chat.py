@@ -9,7 +9,7 @@ from typing import List, Optional, Dict, Any
 import json
 import asyncio
 import logging
-
+import time
 try:
     from model_service.model_manager import ModelManager
 except ImportError:
@@ -78,6 +78,36 @@ async def chat_completion(
     except Exception as e:
         logger.error(f"聊天生成失败: {e}")
         raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
+
+
+# @router.post("/chat/teststream", summary="流式聊天")
+# async def stream_lines(
+#     request: ChatRequest,
+#     model_manager: ModelManager = Depends(get_model_manager)
+# ):
+#     """测试流式聊天接口，无需调用模型，只是模拟流式输出"""
+#     lines = [
+#         "第一行：流式传输开始...",
+#         "第二行：数据正在实时传输",
+#         "第三行：这是中间过程",
+#         "第四行：传输进度 50%",
+#         "第五行：即将完成传输",
+#         "第六行：流式传输结束！"
+#     ]
+    
+#     async def line_generator():
+#         for i, line in enumerate(lines, 1):
+#             # 每行之间有不同的延迟
+#             await asyncio.sleep(1)
+#             # 添加行号和时间戳
+#             timestamp = time.strftime("%H:%M:%S")
+#             yield f"[{timestamp}] 第{i}行: {line}\n"
+    
+#     return StreamingResponse(
+#         line_generator(),
+#         media_type="text/plain; charset=utf-8"
+#     )
+
 
 @router.post("/chat/stream", summary="流式聊天")
 async def chat_stream(

@@ -13,7 +13,7 @@
 
 ## 🚀 快速开始
 
-### 方式1: Docker部署（推荐）
+<!-- ### 方式1: Docker部署（推荐）
 
 ```bash
 # 1. 克隆项目
@@ -26,14 +26,17 @@ chmod +x build_docker.sh
 
 # 3. 访问服务
 # 主页面: http://localhost:8080
-```
+``` -->
 
 ### 方式2: 本地部署
 
 ```bash
 # 1. 安装依赖
+
 pip install -r requirements.txt
 cd frontend && npm install
+
+
 
 # 2. 启动服务
 ./start_all.sh
@@ -76,8 +79,8 @@ cd frontend && npm install
 - **前端**: React + TypeScript + Ant Design + Vite
 - **数据库**: SQLite
 - **缓存**: Redis
-- **部署**: Docker + Docker Compose
-- **代理**: Nginx
+- **部署**: Docker + Docker Compose  #未实现
+- **代理**: Nginx # 暂时忽略
 
 ## 📊 系统要求
 
@@ -97,7 +100,7 @@ cd frontend && npm install
 ## 🔧 配置说明
 
 ### 环境变量
-```bash
+<!-- ```bash
 # Ollama配置
 OLLAMA_HOST=localhost:11434
 
@@ -106,9 +109,9 @@ DEFAULT_MODEL=qwen2.5:7b
 
 # 安全配置
 SECRET_KEY=your-secret-key
-```
+``` -->
 
-### 模型下载
+<!-- ### 模型下载
 ```bash
 # 安装Ollama
 curl -fsSL https://ollama.ai/install.sh | sh
@@ -116,7 +119,7 @@ curl -fsSL https://ollama.ai/install.sh | sh
 # 下载模型
 ollama pull qwen2.5:7b
 ollama pull deepseek-coder:6.7b
-```
+``` -->
 
 ## 📁 项目结构
 
@@ -150,7 +153,8 @@ llm-local-backend/
 │   └── model_service/
 │       ├── ollama_manager.py   # Ollama模型管理器
 │       ├── model_manager.py    # 原始模型管理器
-│       └── simple_model_manager.py # 简化模型管理器
+│       |── simple_model_manager.py # 简化模型管理器
+|       |——hybird_mdoel_manager.py    #允许同时使用ollama部署的服务和自己使用transformer部署的服务
 │
 ├── 🎨 前端应用
 │   └── frontend/
