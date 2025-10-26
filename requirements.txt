@@ -1,3 +1,5 @@
+#### 仅需安装，经测试最新版的包也兼容当前代码
+
 # 核心框架
 fastapi>=0.100.0
 uvicorn[standard]>=0.20.0
@@ -9,6 +11,7 @@ torch>=2.0.0
 transformers>=4.30.0
 tokenizers>=0.13.0
 sentencepiece>=0.1.99
+accelerate
 
 # 数据库和存储
 sqlalchemy>=2.0.0

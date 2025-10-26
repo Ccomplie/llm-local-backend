@@ -50,7 +50,16 @@ class HybridModelManager:
                 self.current_model = self.available_models[0]['name']
                 self.current_model_type = self.available_models[0]['type']
                 logger.info(f"默认模型设置为: {self.current_model} ({self.current_model_type})")
-            
+
+            if self.current_model_type == "transformers":
+                model_info = next((m for m in self.available_models if m['name'] == self.current_model), None)
+                logger.info(model_info)
+                if model_info == None:
+                    raise Exception("not find model file")
+                await self._load_transformers_model(model_info['path'])
+        
+
+
             logger.info("混合模型管理器初始化完成")
             
         except Exception as e:
@@ -169,7 +178,7 @@ class HybridModelManager:
 
         bnb_config = BitsAndBytesConfig(
             load_in_8bit=True,
-            bnb_8bit_compute_type=torch.float16,
+            bnb_8bit_compute_type=torch.bfloat16,
             )
         self.transformers_model = AutoModelForCausalLM.from_pretrained(
             model_path,
