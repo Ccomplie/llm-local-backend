@@ -42,6 +42,47 @@ def get_model_manager() -> ModelManager:
     from main import app
     return app.state.model_manager
 
+# 新增：从不同类型的 chunk 中提取文本
+def _extract_text_from_chunk(chunk: Any) -> str:
+    """从 model_manager.generate_stream 的返回值中提取文本（兼容 str/dict/list）"""
+    try:
+        if chunk is None:
+            return ""
+        # 如果已经是字符串
+        if isinstance(chunk, str):
+            return chunk
+        # 如果是字典，优先取常见字段
+        if isinstance(chunk, dict):
+            # 直接 token 字段
+            if "token" in chunk and isinstance(chunk["token"], str):
+                return chunk["token"]
+            # message.content 结构
+            if "message" in chunk and isinstance(chunk["message"], dict):
+                return chunk["message"].get("content", "") or ""
+            # content 字段
+            if "content" in chunk and isinstance(chunk["content"], str):
+                return chunk["content"]
+            # choices -> delta/text
+            if "choices" in chunk and isinstance(chunk["choices"], list):
+                content = ""
+                for c in chunk["choices"]:
+                    if isinstance(c, dict):
+                        delta = c.get("delta")
+                        if isinstance(delta, dict) and isinstance(delta.get("content"), str):
+                            content += delta.get("content", "")
+                        else:
+                            content += c.get("text", "") or (c.get("message") or {}).get("content", "") or ""
+                return content
+        # 如果是列表，尝试组合内部的 message.content
+        if isinstance(chunk, list):
+            pieces = []
+            for item in chunk:
+                pieces.append(_extract_text_from_chunk(item))
+            return "".join(pieces)
+    except Exception as e:
+        logger.debug("提取 chunk 文本失败: %s", e)
+    return ""
+
 @router.post("/chat", response_model=ChatResponse, summary="发送聊天消息")
 async def chat_completion(
     request: ChatRequest,
@@ -135,15 +176,19 @@ async def chat_stream(
                 generation_kwargs["top_p"] = request.top_p
             
             # 流式生成
-            async for token in model_manager.generate_stream(prompt, **generation_kwargs):
+            async for chunk in model_manager.generate_stream(prompt, **generation_kwargs):
+                text = _extract_text_from_chunk(chunk)
+                if not text:
+                    continue
                 data = {
-                    "token": token,
+                    "token": text,
                     "model": current_model
                 }
+                # 以 SSE 格式发送统一 JSON
                 yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
             
             # 结束标记
-            yield "data: [DONE]\n\n"
+            yield "data: {\"done\": true}\n\n"
             
         except Exception as e:
             logger.error(f"流式生成失败: {e}")
@@ -156,6 +201,7 @@ async def chat_stream(
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # <- 禁用代理缓冲，帮助流式数据实时到达客户端
         }
     )
 
@@ -188,10 +234,14 @@ async def chat_websocket(websocket: WebSocket):
                     prompt = build_prompt(messages)
                     
                     # 流式生成并发送
-                    async for token in model_manager.generate_stream(prompt):
+                    async for chunk in model_manager.generate_stream(prompt):
+                        text = _extract_text_from_chunk(chunk)
+                        if not text:
+                            continue
                         await websocket.send_json({
                             "type": "token",
-                            "token": token
+                            "token": text,
+                            "model": current_model
                         })
                     
                     # 发送完成标记
@@ -205,7 +255,7 @@ async def chat_websocket(websocket: WebSocket):
                         "type": "error",
                         "error": str(e)
                     })
-            
+    
     except WebSocketDisconnect:
         logger.info("WebSocket连接断开")
     except Exception as e:
