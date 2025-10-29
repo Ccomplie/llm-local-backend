@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 
 from config.settings import Settings
-from api.routes import chat, model_management, training, health, computing, storage, system, model_service
+from api.routes import chat, model_management, training, health, computing, storage, system, model_service, auth
 # 使用混合模型管理器（支持Ollama和Transformers模型）
 try:
     from model_service.hybrid_model_manager import HybridModelManager as ModelManager
@@ -99,6 +99,7 @@ app.include_router(computing.router, tags=["算力资源管理"])
 app.include_router(storage.router, tags=["存储资源管理"])
 app.include_router(system.router, tags=["系统资源管理"])
 app.include_router(model_service.router, tags=["模型服务管理"])
+app.include_router(auth.router, prefix="/api/v1", tags=["用户认证"])
 
 # 全局异常处理
 @app.exception_handler(Exception)
