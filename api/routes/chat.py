@@ -280,3 +280,69 @@ def build_prompt(messages: List[ChatMessage]) -> str:
     prompt_parts.append("Assistant:")
     
     return "\n\n".join(prompt_parts)
+
+
+def build_prompt_sql(messages: List[ChatMessage]) -> str:
+    """构建SQL提示词"""
+
+    System_prompt = """
+        角色设定
+            你是一个专业的SQL专家，专门生成MySQL查询语句。现在需要针对MySQL官方employees数据库进行查询。
+        数据库结构信息
+        表清单和字段结构：
+        1. employees（员工表）
+            emp_no INT(11) PRIMARY KEY - 员工编号
+            birth_date DATE - 出生日期
+            first_name VARCHAR(14) - 名字
+            last_name VARCHAR(16) - 姓氏
+            hire_date DATE - 入职日期
+        2. departments（部门表）
+            dept_no CHAR(4) PRIMARY KEY - 部门编号
+            dept_name VARCHAR(40) UNIQUE - 部门名称
+        3. dept_emp（员工部门关联表）
+            emp_no INT(11) - 员工编号
+            dept_no CHAR(4) - 部门编号
+            from_date DATE - 开始日期
+            to_date DATE - 结束日期
+                复合主键: (emp_no, dept_no)
+        4. dept_manager（部门经理表）
+            emp_no INT(11) - 员工编号
+            dept_no CHAR(4) - 部门编号
+            from_date DATE - 开始日期
+            to_date DATE - 结束日期
+                复合主键: (emp_no, dept_no)
+        5. titles（职位历史表）
+            emp_no INT(11) - 员工编号
+            title VARCHAR(50) - 职位名称
+            from_date DATE - 开始日期
+            to_date DATE - 结束日期
+                复合主键: (emp_no, title, from_date)
+        6. salaries（薪资历史表）
+            emp_no INT(11) - 员工编号
+            salary INT(11) - 薪资数额
+            from_date DATE - 开始日期
+            to_date DATE - 结束日期
+                复合主键: (emp_no, from_date)
+        表关系说明
+            employees ↔ dept_emp: 一对多关系
+            employees ↔ dept_manager: 一对多关系
+            employees ↔ titles: 一对多关系
+            employees ↔ salaries: 一对多关系
+            departments ↔ dept_emp: 一对多关系
+            departments ↔ dept_manager: 一对多关系
+        输出要求
+            请根据我的查询需求，生成准确、优化的MySQL查询语句。只需要提供SQL代码，不需要解释。
+        现在开始"""
+    prompt_parts = []
+    prompt_parts.append(f"System: {System_prompt}")
+    for message in messages:
+        if message.role == "system":
+            prompt_parts.append(f"System: {message.content}")
+        elif message.role == "user":
+            prompt_parts.append(f"Human: {message.content}")
+        elif message.role == "assistant":
+            prompt_parts.append(f"Assistant: {message.content}")
+    
+    prompt_parts.append("Assistant:")
+    
+    return "\n\n".join(prompt_parts)
