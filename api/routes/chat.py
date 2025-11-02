@@ -15,6 +15,7 @@ try:
 except ImportError:
     from model_service.simple_model_manager import SimpleModelManager as ModelManager
 
+from services.func_call import func_call 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
@@ -205,6 +206,37 @@ async def chat_stream(
         }
     )
 
+
+@router.post("/chat_func", response_model=ChatResponse, summary="发送聊天消息")
+async def chat_completion(
+    request: ChatRequest,
+    model_manager: ModelManager = Depends(get_model_manager)
+):
+    """发送聊天消息并获取回复"""
+    
+    current_model = await model_manager.get_current_model()
+    if not current_model:
+        raise HTTPException(status_code=400, detail="没有加载的模型")
+    
+    try:
+       
+        response = await func_call(model_manager, request.messages)
+        
+        logger.info(f"生成结果: \n{response}")
+        return ChatResponse(
+            message=response,
+            usage={"prompt_tokens": len(response.split()), "completion_tokens": len(response.split())},
+            model=await model_manager.get_current_model()
+        )
+        
+    except Exception as e:
+        logger.error(f"聊天生成失败: {e}")
+        raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
+
+
+
+
+
 @router.websocket("/chat/ws")
 async def chat_websocket(websocket: WebSocket):
     """WebSocket聊天接口"""
@@ -344,5 +376,5 @@ def build_prompt_sql(messages: List[ChatMessage]) -> str:
             prompt_parts.append(f"Assistant: {message.content}")
     
     prompt_parts.append("Assistant:")
-    
+    logger.info(f"SQL Prompt: {prompt_parts}")
     return "\n\n".join(prompt_parts)

@@ -15,6 +15,7 @@ from config.settings import Settings
 # 尝试导入Transformers相关模块
 try:
     from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+    from transformers import TextStreamer
     import torch
     TRANSFORMERS_AVAILABLE = True
 except ImportError:
@@ -50,12 +51,14 @@ class HybridModelManager:
                 self.current_model = self.available_models[0]['name']
                 self.current_model_type = self.available_models[0]['type']
                 logger.info(f"默认模型设置为: {self.current_model} ({self.current_model_type})")
-
+            else:
+                raise Exception("未找到可用模型")
+            
             if self.current_model_type == "transformers":
                 model_info = next((m for m in self.available_models if m['name'] == self.current_model), None)
                 logger.info(model_info)
                 if model_info == None:
-                    raise Exception("not find model file")
+                    raise Exception("未找到模型文件")
                 await self._load_transformers_model(model_info['path'])
         
 
@@ -278,24 +281,20 @@ class HybridModelManager:
         
         yield {"content": "", "done": True}
     
-    async def _generate_transformers_response(self, messages: List[Dict[str, str]], stream: bool = False) -> Any:
+    async def _generate_transformers_response(self, messages: List[Dict[str, str]], tools) -> Any:
         """使用Transformers生成响应"""
         if not self.transformers_model or not self.transformers_tokenizer:
             raise RuntimeError("Transformers模型未加载")
         
-        # 构建输入文本
-        input_text = ""
-        for message in messages:
-            role = message.get("role", "")
-            content = message.get("content", "")
-            if role == "user":
-                input_text += f"<|im_start|>user\n{content}<|im_end|>\n"
-            elif role == "assistant":
-                input_text += f"<|im_start|>assistant\n{content}<|im_end|>\n"
-        
-        input_text += "<|im_start|>assistant\n"
-        logger.info(f"Transformers输入文本: {input_text}")
+        input_text = self.transformers_tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=False # Switches between thinking and non-thinking modes. Default is True.
+        )
+
         # 编码输入
+        logger.info(f"\nTransformers输入文本: {input_text}")
         inputs = self.transformers_tokenizer.encode(input_text, return_tensors="pt")
         
         if torch.cuda.is_available():
@@ -310,7 +309,8 @@ class HybridModelManager:
                 top_p=0.9,
                 top_k=40,
                 do_sample=True,
-                pad_token_id=self.transformers_tokenizer.eos_token_id
+                pad_token_id=self.transformers_tokenizer.eos_token_id,
+                
             )
         
         # 解码响应
@@ -325,15 +325,30 @@ class HybridModelManager:
             "model": self.current_model
         }
     
-    async def generate_text(self, prompt: str, **kwargs) -> str:
+    async def generate_text(self, messages: List[Dict[str, str]], **kwargs) -> str:
         """生成文本（兼容接口）"""
         try:
-            messages = [{"role": "user", "content": prompt}]
+            
             result = await self.generate_response(messages, stream=False)
             return result.get("message", "")
         except Exception as e:
             logger.error(f"生成文本失败: {e}")
             raise
+
+    async def generate_func_call(self, prompt: str, tools, **kwargs) -> str:
+        """生成文本（兼容接口）"""
+        try:
+            messages = [{"role": "user", "content": prompt}]
+
+            if self.current_model_type == 'transformers':
+                result = await self._generate_transformers_response(messages, stream=False)
+                return result.get("message", "")
+        except Exception as e:
+            logger.error(f"生成文本失败: {e}")
+            raise
+
+    
+
     
     async def generate_stream(self, prompt: str, **kwargs) -> AsyncGenerator[str, None]:
         """流式生成文本"""
@@ -479,3 +494,104 @@ class HybridModelManager:
             self.transformers_tokenizer = None
             torch.cuda.empty_cache()
         logger.info("混合模型管理器资源清理完成")
+
+
+
+    async def _generate_transformers_func_call(self, messages: List[Dict[str, str]], tools) -> Any:
+        """使用Transformers生成函数调用响应"""
+        if not self.transformers_model or not self.transformers_tokenizer:
+            raise RuntimeError("Transformers模型未加载")
+        
+        # 应用聊天模板，启用思考模式
+        input_text = self.transformers_tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=True,  # 启用思考模式以支持函数调用
+            tools=tools
+        )
+
+        # 添加工具描述到提示词
+        # if tools:
+        #     tools_desc = "\n可用工具:\n" + "\n".join([
+        #         f"- {tool['function']['name']}: {tool['function']['description']}"
+        #         for tool in tools
+        #     ])
+        #     input_text += tools_desc + "\n\n请根据用户需求选择合适的工具进行调用。"
+        
+
+        logger.info(f"\nTransformers函数调用输入文本: \n\n{input_text}")
+        inputs = self.transformers_tokenizer.encode(input_text, return_tensors="pt")
+        
+        if torch.cuda.is_available():
+            inputs = inputs.cuda()
+            
+        
+        # 生成响应
+        with torch.no_grad():
+            outputs = self.transformers_model.generate(
+                inputs,
+                max_new_tokens=2048,
+                temperature=0.6,  # 降低温度以获得更确定的函数调用
+                top_p=0.8,
+                top_k=30,
+                do_sample=True,
+                pad_token_id=self.transformers_tokenizer.eos_token_id,
+            )
+        
+        # 解码响应
+        response_text = self.transformers_tokenizer.decode(outputs[0][inputs.shape[1]:], skip_special_tokens=True)
+        
+        # 尝试解析函数调用
+        function_call = parse_function_call(response_text)
+        
+        return {
+            "message": {
+                "content": response_text,
+                "tool_calls": [function_call] if function_call else []
+            },
+            "usage": {
+                "prompt_tokens": inputs.shape[1],
+                "completion_tokens": outputs.shape[1] - inputs.shape[1],
+            },
+            "model": self.current_model
+        }
+
+    async def generate_func_call(self, messages: List[Dict[str, str]], tools, **kwargs) -> Any:
+        """生成函数调用"""
+        try:
+            if self.current_model_type == 'transformers':
+                result = await self._generate_transformers_func_call(messages, tools)
+                return result
+            else:
+                # 其他模型的函数调用实现
+                raise NotImplementedError(f"模型类型 {self.current_model_type} 的函数调用未实现")
+        except Exception as e:
+            logger.error(f"函数调用生成失败: {e}")
+            raise
+
+def parse_function_call(response_text: str) -> Optional[Dict]:
+    """解析函数调用响应"""
+    try:
+
+        # 简单的函数调用解析逻辑
+        # 在实际应用中，您可能需要更复杂的解析
+        if "sql_query" in response_text.lower():
+            # 提取参数
+            import re
+            db_match = re.search(r'database[\s:"]*([\w]+)', response_text, re.IGNORECASE)
+            if db_match:
+                logger.info("添加SQL函数调用")
+                return {
+                    "function": {
+                        "name": "sql_query",
+                        "arguments": json.dumps({
+                            "database": db_match.group(1),
+                        })
+                    }
+                }
+                
+        return None
+    except Exception as e:
+        logger.error(f"解析函数调用失败: {e}")
+        return None
