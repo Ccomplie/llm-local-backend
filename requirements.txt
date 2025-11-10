@@ -26,6 +26,8 @@ numpy>=1.21.0
 requests>=2.28.0
 httpx>=0.24.0
 python-multipart>=0.0.5
+passlib[bcrypt]>=1.7.4
+python-jose[cryptography]>=3.3.0
 
 # 日志和监控
 loguru>=0.7.0
