@@ -9,7 +9,7 @@
     "maxsize": 10,
     "autocommit": true
   },
-  "reports": {
+  "world": {
     "host": "localhost",
     "port": 3306,
     "user": "app_user",
@@ -19,7 +19,7 @@
     "maxsize": 5,
     "autocommit": true
   },
-  "logs": {
+  "sakila": {
     "host": "localhost",
     "port": 3306,
     "user": "app_user",

@@ -231,7 +231,7 @@ async def chat_completion(
         
     except Exception as e:
         logger.error(f"聊天生成失败: {e}")
-        raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f" {str(e)}")
 
 
 

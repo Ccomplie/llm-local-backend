@@ -35,7 +35,7 @@ class Conversation(Base):
     model_name = Column(String)
     user_message = Column(Text)
     assistant_message = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
 
 class TrainingJob(Base):
     """训练任务表"""
@@ -47,8 +47,8 @@ class TrainingJob(Base):
     status = Column(String)  # pending, running, completed, failed, cancelled
     config = Column(Text)  # JSON配置
     progress = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 class ModelInfo(Base):
     """模型信息表"""
@@ -60,7 +60,7 @@ class ModelInfo(Base):
     size = Column(Integer)
     format = Column(String)  # transformers, llama-cpp, etc.
     is_active = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
 
 class User(Base):
     """用户信息表"""
@@ -71,8 +71,8 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 async def init_database():
     """初始化数据库"""

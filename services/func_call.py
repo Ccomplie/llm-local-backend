@@ -5,11 +5,6 @@ import json
 
 logger = logging.getLogger(__name__)
 
-with open("services/seq_description.json", 'r', encoding='utf-8') as f:
-    sql_templates = json.load(f)
-
-
-
 
 TOOLS = [
     {
@@ -23,11 +18,11 @@ TOOLS = [
                     "database": {
                         "type": "string", 
                         "enum": ["world", "employees", "sakila"],
-                        "description": "数据库名称"
+                        "description": "name of the database to query"
                     },
                     "query": {
                         "type": "string",
-                        "description": "自然语言查询描述"
+                        "description":"natural language description of the query to be performed on the database"
                     }
                 },
                 "required": ["database", "query"]
@@ -94,6 +89,8 @@ async def func_call(model_manager, messages):
                     if "function" in tool_call and tool_call["function"]["name"] == "sql_query":
                         args = json.loads(tool_call["function"]["arguments"])
                         database = args["database"]
+                        database = clean_database_name(database)
+
                         query_desc = messages # 使用最后一条用户消息作为查询描述
                         logger.info(f"SQL Query Description: {query_desc}")
                         response, sql_query = await sql_generate_and_execute(
@@ -103,8 +100,8 @@ async def func_call(model_manager, messages):
                         logger.info(f"Generated SQL: {sql_query}")
                         logger.info(f"Executing SQL on database: {database}")
                         logger.info(f"Executing response: {response}")
-                        return f"SQL查询结果: {response[:10000]}\n生成的SQL语句: {sql_query}"
-
+                        #return f"SQL查询结果: {response[:10000]}\n生成的SQL语句: {sql_query}"
+                        return sql_query
 
                     elif tool_call["function"]["name"] == "file_operation":
                         args = json.loads(tool_call["function"]["arguments"])
@@ -119,10 +116,20 @@ async def func_call(model_manager, messages):
     #     logger.error(f"函数调用处理错误: {e}")
     #     return "抱歉，处理您的请求时出现错误。"
 
+def clean_database_name(db_name: str) -> str:
+    """清理数据库名称"""
+    if "employees" in db_name.lower():
+        return "employees"
+    elif "world" in db_name.lower():
+        return "world"
+    elif "sakila" in db_name.lower():
+        return "sakila"
+    return db_name.strip().lower()
+
 async def sql_generate_and_execute(model_manager, database: str, messages) -> str:
     """生成并执行SQL查询"""
     # 构建SQL生成提示词
-    with open("services/seq_description.json", 'r', encoding='utf-8') as f:
+    with open("services/sql_description.json", 'r', encoding='utf-8') as f:
         sql_templates = json.load(f)
     
     sql_prompt = build_prompt_sql(messages, sql_templates.get(database, {}))

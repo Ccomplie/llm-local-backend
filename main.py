@@ -35,7 +35,6 @@ except ImportError:
             from model_service.simple_model_manager import SimpleModelManager as ModelManager
             print("使用简化模型管理器")
 from utils.logger import setup_logger
-from utils.database import init_database
 from sql_dependencies.database import db_manager
 # 配置日志
 setup_logger()
