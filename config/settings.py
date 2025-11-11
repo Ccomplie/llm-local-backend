@@ -40,7 +40,18 @@ class Settings(BaseSettings):
     # 文件上传配置
     upload_dir: str = "./uploads"
     max_file_size: int = 100 * 1024 * 1024  # 100MB
-    allowed_extensions: List[str] = [".txt", ".json", ".csv", ".md"]
+    allowed_extensions: List[str] = [
+        ".txt",
+        ".md",
+        ".json",
+        ".csv",
+        ".pdf",
+        ".docx",
+        ".xlsx",
+        ".pptx"
+    ]
+    file_context_max_chars: int = 20000
+    file_preview_chars: int = 800
     
     # 日志配置
     log_level: str = "INFO"

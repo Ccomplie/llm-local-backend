@@ -2,7 +2,7 @@
 聊天对话API
 """
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
@@ -10,6 +10,9 @@ import json
 import asyncio
 import logging
 import time
+
+from utils.file_manager import store_uploaded_file, ensure_attachments_exist
+
 try:
     from model_service.model_manager import ModelManager
 except ImportError:
