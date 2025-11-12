@@ -54,7 +54,7 @@ export class ChatAPI {
   private baseUrl = API_CONFIG.BASE_URL;
 
   // 发送聊天消息
-  async sendMessage(messages: Array<{role: string, content: string}>, options: any = {}) {
+  async sendMessage(messages: Array<{role: string, content: string}>, options: {maxTokens?: number, temperature?: number, topP?: number} = {}) {
     const response = await fetch(`${this.baseUrl}${API_CONFIG.ENDPOINTS.CHAT}`, {
       method: 'POST',
       headers: {
@@ -74,8 +74,7 @@ export class ChatAPI {
     return await response.json();
   }
 
-  // 流式聊天
-  async *sendMessageStream(messages: Array<{role: string, content: string}>, options: any = {}) {
+  async *sendMessageStream(messages: Array<{role: string, content: string}>, options: {maxTokens?: number, temperature?: number, topP?: number} = {}) {
     const response = await fetch(`${this.baseUrl}${API_CONFIG.ENDPOINTS.CHAT_STREAM}`, {
       method: 'POST',
       headers: {
@@ -95,30 +94,68 @@ export class ChatAPI {
 
     const reader = response.body?.getReader();
     const decoder = new TextDecoder();
+    
+    if (!reader) {
+      throw new Error('Response body is not readable');
+    }
 
-    if (!reader) return;
+    let buffer = '';
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value);
-      const lines = chunk.split('\n');
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6);
-          if (data === '[DONE]') {
-            return;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          // 处理缓冲区中剩余的数据
+          if (buffer.trim()) {
+            const lines = buffer.split('\n');
+            for (const line of lines) {
+              const parsed = processLine(line);
+              if (parsed) {
+                yield parsed;
+              }
+            }
           }
-          try {
-            const parsed = JSON.parse(data);
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        
+        // 保留最后一行（可能不完整）
+        buffer = lines.pop() || '';
+        
+        for (const line of lines) {
+          const parsed = processLine(line);
+          if (parsed) {
             yield parsed;
-          } catch (e) {
-            // 忽略解析错误
           }
         }
       }
+    } finally {
+      reader.releaseLock();
+    }
+
+    function processLine(line: string): any {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) return null;
+      
+      if (trimmedLine.startsWith('data: ')) {
+        const data = trimmedLine.slice(6);
+        
+        if (data === '[DONE]') {
+          return null;
+        }
+        
+        try {
+          const parsed = JSON.parse(data);
+          return parsed;
+        } catch (e) {
+          console.warn('Failed to parse SSE data:', data, e);
+          return null;
+        }
+      }
+      return null;
     }
   }
 

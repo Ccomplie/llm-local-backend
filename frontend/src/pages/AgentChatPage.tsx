@@ -81,6 +81,18 @@ interface ServiceCommand {
   category: 'service' | 'monitor' | 'analysis' | 'system';
 }
 
+// 流式响应chunk的类型定义
+interface StreamChunk {
+  token?: string;
+  choices?: Array<{
+    delta?: {
+      content?: string;
+    };
+  }>;
+  content?: string;
+  text?: string;
+}
+
 const AgentChatPage: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -284,76 +296,97 @@ const AgentChatPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // 构建消息历史
-      const messageHistory = [
-        ...messages.map(msg => ({
-          role: msg.type === 'user' ? 'user' : 'assistant',
-          content: msg.content
-        })),
-        { role: 'user', content: currentInput }
-      ];
+    // 构建消息历史
+    const messageHistory = [
+      ...messages.map(msg => ({
+        role: msg.type === 'user' ? 'user' : 'assistant',
+        content: msg.content
+      })),
+      { role: 'user', content: currentInput }
+    ];
 
-      console.log('发送消息历史:', messageHistory);
+    console.log('发送消息历史:', messageHistory);
 
-      // 使用流式API调用大模型
-      setIsStreaming(true);
-      setStreamingMessage('');
-      
-      let fullResponse = '';
-      console.log('开始流式调用...');
-      
+    // 使用流式API调用大模型
+    setIsStreaming(true);
+    setStreamingMessage('');
+    
+    let fullResponse = '';
+    console.log('开始流式调用...');
+    
       try {
-        for await (const chunk of chatAPI.sendMessageStream(messageHistory, {
-          maxTokens: 1000,
-          temperature: 0.7,
-          topP: 0.9
-        })) {
-          console.log('收到chunk:', chunk);
-          if (chunk.token) {
-            fullResponse += chunk.token;
-            setStreamingMessage(fullResponse);
-          }
-        }
-      } catch (streamError) {
-        console.error('流式调用失败，尝试普通API:', streamError);
-        // 如果流式调用失败，回退到普通API
-        const response = await chatAPI.sendMessage(messageHistory, {
-          maxTokens: 1000,
-          temperature: 0.7,
-          topP: 0.9
-        });
-        fullResponse = response.message || '抱歉，无法获取回复';
-      }
-      
-      console.log('完整回复:', fullResponse);
+      const stream = chatAPI.sendMessageStream(messageHistory, {
+        maxTokens: 1000,
+        temperature: 0.7,
+        topP: 0.9
+      });
 
-      // 添加完整的回复到消息列表
-      const agentMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'agent',
-        content: fullResponse,
-        timestamp: new Date().toLocaleTimeString(),
-        status: 'sent',
-      };
-      setMessages(prev => [...prev, agentMessage]);
-      
-    } catch (error) {
-      console.error('发送消息失败:', error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'agent',
-        content: '抱歉，我暂时无法回复您的消息。请检查后端服务状态或稍后重试。',
-        timestamp: new Date().toLocaleTimeString(),
-        status: 'error',
-      };
-      setMessages(prev => [...prev, errorMessage]);
-      message.error('发送消息失败，请检查服务状态');
-    } finally {
-      setIsLoading(false);
-      setIsStreaming(false);
-      setStreamingMessage('');
+      for await (const chunk of stream) {
+        console.log('收到完整chunk数据:', chunk);
+        
+        // 使用类型断言告诉TypeScript chunk的类型
+        const streamChunk = chunk as StreamChunk;
+        
+        let token = '';
+        if (streamChunk.token) {
+          token = streamChunk.token;
+        } else if (streamChunk.choices?.[0]?.delta?.content) {
+          token = streamChunk.choices[0].delta.content;
+        } else if (streamChunk.content) {
+          token = streamChunk.content;
+        } else if (streamChunk.text) {
+          token = streamChunk.text;
+        }
+        
+        if (token) {
+          fullResponse += token;
+          // 使用函数式更新确保状态正确
+          setStreamingMessage(fullResponse);
+          
+          // 添加微小延迟确保UI更新
+          await new Promise(resolve => requestAnimationFrame(resolve));
+        }
+      }
+    } catch (streamError) {
+      console.error('流式调用失败:', streamError);
+      // 回退到普通API
+      const response = await chatAPI.sendMessage(messageHistory, {
+        maxTokens: 1000,
+        temperature: 0.7,
+        topP: 0.9
+      });
+      fullResponse = response.message || '抱歉，无法获取回复';
+      setStreamingMessage(fullResponse);
     }
-  };
+    
+    console.log('完整回复:', fullResponse);
+
+    // 添加完整的回复到消息列表
+    const agentMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      type: 'agent',
+      content: fullResponse,
+      timestamp: new Date().toLocaleTimeString(),
+      status: 'sent',
+    };
+    setMessages(prev => [...prev, agentMessage]);
+    
+  } catch (error) {
+    console.error('发送消息失败:', error);
+    const errorMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      type: 'agent',
+      content: '抱歉，我暂时无法回复您的消息。请检查后端服务状态或稍后重试。',
+      timestamp: new Date().toLocaleTimeString(),
+      status: 'error',
+    };
+    setMessages(prev => [...prev, errorMessage]);
+  } finally {
+    setIsLoading(false);
+    setIsStreaming(false);
+    setStreamingMessage('');
+  }
+};
 
 
   const handleQuickQuestion = (question: string) => {
