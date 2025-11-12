@@ -15,8 +15,8 @@ from transformers import activations
 activations.PytorchGELUTanh = activations.GELUTanh
 # 尝试导入Transformers相关模块
 try:
-    from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, AwqConfig
     from transformers import TextStreamer
+    from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, TextStreamer,  AwqConfig
     import torch
     TRANSFORMERS_AVAILABLE = True
 except ImportError:
@@ -370,30 +370,100 @@ class HybridModelManager:
         if torch.cuda.is_available():
             inputs = inputs.cuda()
             logger.info("使用GPU进行推理")
-        # 生成响应
-        with torch.no_grad():
-            outputs = self.transformers_model.generate(
-                inputs,
-                max_new_tokens=2048,
-                temperature=0.6,
-                top_p=0.9,
-                top_k=40,
-                do_sample=True,
-                pad_token_id=self.transformers_tokenizer.eos_token_id,
-                
-            )
         
-        # 解码响应
-        response_text = self.transformers_tokenizer.decode(outputs[0][inputs.shape[1]:], skip_special_tokens=True)
+        if stream:
+            # 流式生成
+            return self._stream_transformers_generate(inputs)
+        else:
+            # 同步生成
+            with torch.no_grad():
+                outputs = self.transformers_model.generate(
+                    inputs,
+                    max_new_tokens=2048,
+                    temperature=0.6,
+                    top_p=0.9,
+                    top_k=40,
+                    do_sample=True,
+                    pad_token_id=self.transformers_tokenizer.eos_token_id
+                )
+            
+            # 解码响应
+            response_text = self.transformers_tokenizer.decode(outputs[0][inputs.shape[1]:], skip_special_tokens=True)
+            
+            return {
+                "message": response_text,
+                "usage": {
+                    "prompt_tokens": inputs.shape[1],
+                    "completion_tokens": outputs.shape[1] - inputs.shape[1],
+                },
+                "model": self.current_model
+            }
+    
+    async def _stream_transformers_generate(self, inputs) -> AsyncGenerator[Dict[str, Any], None]:
+        """流式Transformers生成响应"""
+        # 创建队列用于流式输出
+        from queue import Queue
+        output_queue = Queue()
         
-        return {
-            "message": response_text,
-            "usage": {
-                "prompt_tokens": inputs.shape[1],
-                "completion_tokens": outputs.shape[1] - inputs.shape[1],
-            },
-            "model": self.current_model
-        }
+        # 创建自定义流式处理器
+        class CustomStreamer(TextStreamer):
+            def __init__(self, tokenizer, queue, skip_prompt=True, **decode_kwargs):
+                super().__init__(tokenizer, skip_prompt=skip_prompt, **decode_kwargs)
+                self.queue = queue
+            
+            def on_finalized_text(self, text: str, stream_end: bool = False):
+                """当文本最终确定时调用"""
+                if text.strip():
+                    self.queue.put({
+                        "content": text,
+                        "done": stream_end
+                    })
+        
+        # 创建流式处理器
+        streamer = CustomStreamer(
+            self.transformers_tokenizer,
+            output_queue,
+            skip_prompt=True
+        )
+        
+        # 在后台线程中运行生成
+        import threading
+        
+        def generate_in_thread():
+            try:
+                with torch.no_grad():
+                    self.transformers_model.generate(
+                        inputs,
+                        max_new_tokens=2048,
+                        temperature=0.6,
+                        top_p=0.9,
+                        top_k=40,
+                        do_sample=True,
+                        pad_token_id=self.transformers_tokenizer.eos_token_id,
+                        streamer=streamer
+                    )
+                # 生成完成后发送结束标记
+                output_queue.put({"content": "", "done": True})
+            except Exception as e:
+                logger.error(f"Transformers流式生成失败: {e}")
+                output_queue.put({"content": f"生成失败: {str(e)}", "done": True})
+        
+        # 启动生成线程
+        thread = threading.Thread(target=generate_in_thread)
+        thread.daemon = True
+        thread.start()
+        
+        # 从队列中获取流式结果
+        while True:
+            try:
+                result = output_queue.get(timeout=30)  # 30秒超时
+                yield result
+                if result.get("done", False):
+                    break
+            except:
+                logger.warning("Transformers流式生成超时")
+                yield {"content": "", "done": True}
+                break
     
     async def generate_text(self, messages: List[Dict[str, str]], **kwargs) -> str:
         """生成文本（兼容接口）"""
@@ -462,13 +532,11 @@ class HybridModelManager:
                             continue
                             
             elif self.current_model_type == 'transformers':
-                # Transformers模型暂时不支持流式，返回完整文本
-                result = await self.generate_response(messages, stream=False)
-                full_text = result.get("message", "")
-                # 模拟流式输出，按字符分割
-                for char in full_text:
-                    yield char
-                    await asyncio.sleep(0.001)  # 小延迟模拟流式效果
+                # 使用真正的Transformers流式生成
+                async for chunk in self._generate_transformers_response(messages, stream=True):
+                    content = chunk.get("content", "")
+                    if content:
+                        yield content
             else:
                 raise ValueError(f"未知的模型类型: {self.current_model_type}")
                 
