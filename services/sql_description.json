@@ -1,0 +1,232 @@
+{
+  "world": {
+    "description": "包含国家、城市和语言信息的简单数据库",
+    "tables": {
+      "country": {
+        "table_name": "国家表",
+        "fields": [
+          {"name": "Code", "type": "CHAR(3)", "constraint": "PRIMARY KEY", "comment": "国家代码"},
+          {"name": "Name", "type": "CHAR(52)", "constraint": "", "comment": "国家名称"},
+          {"name": "Continent", "type": "ENUM", "constraint": "", "comment": "所属大洲"},
+          {"name": "Region", "type": "CHAR(26)", "constraint": "", "comment": "区域"},
+          {"name": "SurfaceArea", "type": "FLOAT(10,2)", "constraint": "", "comment": "表面积（平方公里）"},
+          {"name": "IndepYear", "type": "SMALLINT(6)", "constraint": "", "comment": "独立年份"},
+          {"name": "Population", "type": "INT(11)", "constraint": "", "comment": "人口数量"},
+          {"name": "LifeExpectancy", "type": "FLOAT(3,1)", "constraint": "", "comment": "人均寿命"},
+          {"name": "GNP", "type": "FLOAT(10,2)", "constraint": "", "comment": "国民生产总值"},
+          {"name": "GNPOld", "type": "FLOAT(10,2)", "constraint": "", "comment": "旧版GNP"},
+          {"name": "LocalName", "type": "CHAR(45)", "constraint": "", "comment": "本地名称"},
+          {"name": "GovernmentForm", "type": "CHAR(45)", "constraint": "", "comment": "政府形式"},
+          {"name": "HeadOfState", "type": "CHAR(60)", "constraint": "", "comment": "国家元首"},
+          {"name": "Capital", "type": "INT(11)", "constraint": "", "comment": "首都城市ID（关联 city.ID）"},
+          {"name": "Code2", "type": "CHAR(2)", "constraint": "", "comment": "国家代码（2字母）"}
+        ]
+      },
+      "city": {
+        "table_name": "城市表",
+        "fields": [
+          {"name": "ID", "type": "INT(11)", "constraint": "PRIMARY KEY AUTO_INCREMENT", "comment": "城市ID"},
+          {"name": "Name", "type": "CHAR(35)", "constraint": "", "comment": "城市名称"},
+          {"name": "CountryCode", "type": "CHAR(3)", "constraint": "", "comment": "所属国家代码"},
+          {"name": "District", "type": "CHAR(20)", "constraint": "", "comment": "区域/州/省"},
+          {"name": "Population", "type": "INT(11)", "constraint": "", "comment": "城市人口数量"}
+        ]
+      },
+      "countrylanguage": {
+        "table_name": "国家语言表",
+        "fields": [
+          {"name": "CountryCode", "type": "CHAR(3)", "constraint": "复合主键", "comment": "国家代码"},
+          {"name": "Language", "type": "CHAR(30)", "constraint": "复合主键", "comment": "语言名称"},
+          {"name": "IsOfficial", "type": "ENUM('T','F')", "constraint": "", "comment": "是否官方语言"},
+          {"name": "Percentage", "type": "FLOAT(4,1)", "constraint": "", "comment": "使用该语言的人口百分比"}
+        ]
+      }
+    },
+    "relationships": [
+      {"from": "country", "to": "city", "type": "一对多", "description": "一个国家有多个城市"},
+      {"from": "country", "to": "countrylanguage", "type": "一对多", "description": "一个国家使用多种语言"}
+    ]
+  },
+  "sakila": {
+    "description": "DVD租赁商店数据库",
+    "tables": {
+      "actor": {
+        "table_name": "演员表",
+        "fields": [
+          {"name": "actor_id", "type": "SMALLINT(5) UNSIGNED", "constraint": "PRIMARY KEY AUTO_INCREMENT", "comment": "演员编号"},
+          {"name": "first_name", "type": "VARCHAR(45)", "constraint": "", "comment": "名字"},
+          {"name": "last_name", "type": "VARCHAR(45)", "constraint": "", "comment": "姓氏"},
+          {"name": "last_update", "type": "TIMESTAMP", "constraint": "", "comment": "最后更新时间"}
+        ]
+      },
+      "film": {
+        "table_name": "电影表",
+        "fields": [
+          {"name": "film_id", "type": "SMALLINT(5) UNSIGNED", "constraint": "PRIMARY KEY AUTO_INCREMENT", "comment": "电影编号"},
+          {"name": "title", "type": "VARCHAR(255)", "constraint": "", "comment": "电影标题"},
+          {"name": "description", "type": "TEXT", "constraint": "", "comment": "电影描述"},
+          {"name": "release_year", "type": "YEAR", "constraint": "", "comment": "发行年份"},
+          {"name": "language_id", "type": "TINYINT(3) UNSIGNED", "constraint": "", "comment": "语言ID"},
+          {"name": "rental_duration", "type": "TINYINT(3) UNSIGNED", "constraint": "", "comment": "租赁时长（天）"},
+          {"name": "rental_rate", "type": "DECIMAL(4,2)", "constraint": "", "comment": "租赁费率"},
+          {"name": "length", "type": "SMALLINT(5) UNSIGNED", "constraint": "", "comment": "电影长度（分钟）"},
+          {"name": "replacement_cost", "type": "DECIMAL(5,2)", "constraint": "", "comment": "赔偿费用"},
+          {"name": "rating", "type": "ENUM", "constraint": "", "comment": "电影分级"},
+          {"name": "special_features", "type": "SET", "constraint": "", "comment": "特别收录"},
+          {"name": "last_update", "type": "TIMESTAMP", "constraint": "", "comment": "最后更新时间"}
+        ]
+      },
+      "film_actor": {
+        "table_name": "电影演员关联表",
+        "fields": [
+          {"name": "actor_id", "type": "SMALLINT(5) UNSIGNED", "constraint": "复合主键", "comment": "演员编号"},
+          {"name": "film_id", "type": "SMALLINT(5) UNSIGNED", "constraint": "复合主键", "comment": "电影编号"},
+          {"name": "last_update", "type": "TIMESTAMP", "constraint": "", "comment": "最后更新时间"}
+        ]
+      },
+      "category": {
+        "table_name": "电影类别表",
+        "fields": [
+          {"name": "category_id", "type": "TINYINT(3) UNSIGNED", "constraint": "PRIMARY KEY AUTO_INCREMENT", "comment": "类别编号"},
+          {"name": "name", "type": "VARCHAR(25)", "constraint": "", "comment": "类别名称"},
+          {"name": "last_update", "type": "TIMESTAMP", "constraint": "", "comment": "最后更新时间"}
+        ]
+      },
+      "film_category": {
+        "table_name": "电影类别关联表",
+        "fields": [
+          {"name": "film_id", "type": "SMALLINT(5) UNSIGNED", "constraint": "复合主键", "comment": "电影编号"},
+          {"name": "category_id", "type": "TINYINT(3) UNSIGNED", "constraint": "复合主键", "comment": "类别编号"},
+          {"name": "last_update", "type": "TIMESTAMP", "constraint": "", "comment": "最后更新时间"}
+        ]
+      },
+      "inventory": {
+        "table_name": "库存表",
+        "fields": [
+          {"name": "inventory_id", "type": "MEDIUMINT(8) UNSIGNED", "constraint": "PRIMARY KEY AUTO_INCREMENT", "comment": "库存编号"},
+          {"name": "film_id", "type": "SMALLINT(5) UNSIGNED", "constraint": "", "comment": "电影编号"},
+          {"name": "store_id", "type": "TINYINT(3) UNSIGNED", "constraint": "", "comment": "商店编号"},
+          {"name": "last_update", "type": "TIMESTAMP", "constraint": "", "comment": "最后更新时间"}
+        ]
+      },
+      "rental": {
+        "table_name": "租赁记录表",
+        "fields": [
+          {"name": "rental_id", "type": "INT(11)", "constraint": "PRIMARY KEY AUTO_INCREMENT", "comment": "租赁记录编号"},
+          {"name": "rental_date", "type": "DATETIME", "constraint": "", "comment": "租赁时间"},
+          {"name": "inventory_id", "type": "MEDIUMINT(8) UNSIGNED", "constraint": "", "comment": "库存编号"},
+          {"name": "customer_id", "type": "SMALLINT(5) UNSIGNED", "constraint": "", "comment": "顾客编号"},
+          {"name": "return_date", "type": "DATETIME", "constraint": "", "comment": "归还时间"},
+          {"name": "staff_id", "type": "TINYINT(3) UNSIGNED", "constraint": "", "comment": "处理员工编号"},
+          {"name": "last_update", "type": "TIMESTAMP", "constraint": "", "comment": "最后更新时间"}
+        ]
+      },
+      "payment": {
+        "table_name": "付款记录表",
+        "fields": [
+          {"name": "payment_id", "type": "SMALLINT(5) UNSIGNED", "constraint": "PRIMARY KEY AUTO_INCREMENT", "comment": "付款记录编号"},
+          {"name": "customer_id", "type": "SMALLINT(5) UNSIGNED", "constraint": "", "comment": "顾客编号"},
+          {"name": "staff_id", "type": "TINYINT(3) UNSIGNED", "constraint": "", "comment": "处理员工编号"},
+          {"name": "rental_id", "type": "INT(11)", "constraint": "", "comment": "租赁记录编号"},
+          {"name": "amount", "type": "DECIMAL(5,2)", "constraint": "", "comment": "付款金额"},
+          {"name": "payment_date", "type": "DATETIME", "constraint": "", "comment": "付款时间"},
+          {"name": "last_update", "type": "TIMESTAMP", "constraint": "", "comment": "最后更新时间"}
+        ]
+      }
+    },
+    "relationships": [
+      {"from": "film", "to": "film_actor", "to2": "actor", "type": "多对多", "description": "一部电影有多个演员，一个演员参演多部电影"},
+      {"from": "film", "to": "film_category", "to2": "category", "type": "多对多", "description": "一部电影属于多个类别，一个类别包含多部电影"},
+      {"from": "film", "to": "inventory", "type": "一对多", "description": "一部电影可以有多个库存拷贝"},
+      {"from": "inventory", "to": "rental", "type": "一对多", "description": "一个库存拷贝可以有多次租赁记录"},
+      {"from": "rental", "to": "payment", "type": "一对多", "description": "一次租赁对应一次付款"}
+    ]
+  },
+   "employees": {
+    "description": "员工管理系统数据库",
+    "tables": {
+      "employees": {
+        "table_name": "员工表",
+        "fields": [
+          {"name": "emp_no", "type": "INT(11)", "constraint": "PRIMARY KEY", "comment": "员工编号"},
+          {"name": "birth_date", "type": "DATE", "constraint": "", "comment": "出生日期"},
+          {"name": "first_name", "type": "VARCHAR(14)", "constraint": "", "comment": "名字"},
+          {"name": "last_name", "type": "VARCHAR(16)", "constraint": "", "comment": "姓氏"},
+          {"name": "gender", "type": "ENUM('M','F')", "constraint": "", "comment": "性别"},
+          {"name": "hire_date", "type": "DATE", "constraint": "", "comment": "入职日期"}
+        ]
+      },
+      "departments": {
+        "table_name": "部门表",
+        "fields": [
+          {"name": "dept_no", "type": "CHAR(4)", "constraint": "PRIMARY KEY", "comment": "部门编号"},
+          {"name": "dept_name", "type": "VARCHAR(40)", "constraint": "UNIQUE", "comment": "部门名称"}
+        ]
+      },
+      "dept_emp": {
+        "table_name": "员工部门关联表",
+        "fields": [
+          {"name": "emp_no", "type": "INT(11)", "constraint": "复合主键", "comment": "员工编号"},
+          {"name": "dept_no", "type": "CHAR(4)", "constraint": "复合主键", "comment": "部门编号"},
+          {"name": "from_date", "type": "DATE", "constraint": "", "comment": "开始日期"},
+          {"name": "to_date", "type": "DATE", "constraint": "", "comment": "结束日期"}
+        ]
+      },
+      "dept_manager": {
+        "table_name": "部门经理表",
+        "fields": [
+          {"name": "emp_no", "type": "INT(11)", "constraint": "复合主键", "comment": "员工编号"},
+          {"name": "dept_no", "type": "CHAR(4)", "constraint": "复合主键", "comment": "部门编号"},
+          {"name": "from_date", "type": "DATE", "constraint": "", "comment": "开始日期"},
+          {"name": "to_date", "type": "DATE", "constraint": "", "comment": "结束日期"}
+        ]
+      },
+      "titles": {
+        "table_name": "职位历史表",
+        "fields": [
+          {"name": "emp_no", "type": "INT(11)", "constraint": "复合主键", "comment": "员工编号"},
+          {"name": "title", "type": "VARCHAR(50)", "constraint": "复合主键", "comment": "职位名称"},
+          {"name": "from_date", "type": "DATE", "constraint": "复合主键", "comment": "开始日期"},
+          {"name": "to_date", "type": "DATE", "constraint": "", "comment": "结束日期"}
+        ]
+      },
+      "salaries": {
+        "table_name": "薪资历史表",
+        "fields": [
+          {"name": "emp_no", "type": "INT(11)", "constraint": "复合主键", "comment": "员工编号"},
+          {"name": "salary", "type": "INT(11)", "constraint": "", "comment": "薪资数额"},
+          {"name": "from_date", "type": "DATE", "constraint": "复合主键", "comment": "开始日期"},
+          {"name": "to_date", "type": "DATE", "constraint": "", "comment": "结束日期"}
+        ]
+      }
+    },
+    "relationships": [
+      {"from": "employees", "to": "dept_emp", "type": "一对多", "description": "一个员工可以在多个部门任职"},
+      {"from": "employees", "to": "dept_manager", "type": "一对多", "description": "一个员工可以担任多个部门的经理"},
+      {"from": "employees", "to": "titles", "type": "一对多", "description": "一个员工可以有多个职位历史记录"},
+      {"from": "employees", "to": "salaries", "type": "一对多", "description": "一个员工可以有多个薪资历史记录"},
+      {"from": "departments", "to": "dept_emp", "type": "一对多", "description": "一个部门可以有多个员工"},
+      {"from": "departments", "to": "dept_manager", "type": "一对多", "description": "一个部门可以有多个经理历史记录"},
+      {"from": "dept_emp", "to": "employees", "type": "多对一", "description": "员工部门关联指向具体员工"},
+      {"from": "dept_emp", "to": "departments", "type": "多对一", "description": "员工部门关联指向具体部门"},
+      {"from": "dept_manager", "to": "employees", "type": "多对一", "description": "部门经理指向具体员工"},
+      {"from": "dept_manager", "to": "departments", "type": "多对一", "description": "部门经理指向具体部门"}
+    ],
+    "key_constraints": {
+      "composite_primary_keys": [
+        {"table": "dept_emp", "keys": ["emp_no", "dept_no"]},
+        {"table": "dept_manager", "keys": ["emp_no", "dept_no"]},
+        {"table": "titles", "keys": ["emp_no", "title", "from_date"]},
+        {"table": "salaries", "keys": ["emp_no", "from_date"]}
+      ],
+      "foreign_key_relationships": [
+        {"table": "dept_emp", "column": "emp_no", "references": "employees(emp_no)"},
+        {"table": "dept_emp", "column": "dept_no", "references": "departments(dept_no)"},
+        {"table": "dept_manager", "column": "emp_no", "references": "employees(emp_no)"},
+        {"table": "dept_manager", "column": "dept_no", "references": "departments(dept_no)"},
+        {"table": "titles", "column": "emp_no", "references": "employees(emp_no)"},
+        {"table": "salaries", "column": "emp_no", "references": "employees(emp_no)"}
+      ]
+    }
+  }
+}

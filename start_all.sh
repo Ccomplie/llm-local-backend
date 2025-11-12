@@ -38,15 +38,20 @@ sleep 2
 echo "🔧 启动后端服务..."
 # cd /media/cring/mydrive/llm-local-backend
 source .env.optimized 2>/dev/null || true
-nohup python3 start.py > logs/backend.log 2>&1 &
+# nohup python3 start.py > logs/backend.log 2>&1 &
+nohup python3 start.py >logs/nohup.log 2>&1 &
 BACKEND_PID=$!
 echo "   后端服务PID: $BACKEND_PID"
 
 # 等待后端启动
 echo "⏳ 等待后端服务启动..."
 for i in {1..30}; do
+    echo "starting logs: "
+    sleep 0.5
     if curl -s http://localhost:8000/api/v1/health >/dev/null 2>&1; then
+        
         echo "✅ 后端服务启动成功"
+
         break
     fi
     if [ $i -eq 30 ]; then

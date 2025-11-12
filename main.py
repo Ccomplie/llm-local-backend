@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
-
+from fastapi_offline import FastAPIOffline as FastAPI
 from config.settings import Settings
 from api.routes import chat, model_management, training, health, computing, storage, system, model_service, auth
 # 使用混合模型管理器（支持Ollama和Transformers模型）
@@ -35,8 +35,7 @@ except ImportError:
             from model_service.simple_model_manager import SimpleModelManager as ModelManager
             print("使用简化模型管理器")
 from utils.logger import setup_logger
-from utils.database import init_database
-
+from sql_dependencies.database import db_manager
 # 配置日志
 setup_logger()
 logger = logging.getLogger(__name__)
@@ -53,8 +52,8 @@ async def lifespan(app: FastAPI):
     logger.info("正在启动大模型后端服务...")
     
     # 初始化数据库
-    await init_database()
-    
+    # await init_database()
+    await db_manager.initialize_from_json("sql_dependencies/conf.json")
     # 初始化模型管理器
     settings = Settings()
     model_manager = ModelManager(settings)
@@ -69,6 +68,7 @@ async def lifespan(app: FastAPI):
     logger.info("正在关闭后端服务...")
     if model_manager:
         await model_manager.cleanup()
+    await db_manager.shutdown()
     logger.info("后端服务已关闭")
 
 # 创建FastAPI应用

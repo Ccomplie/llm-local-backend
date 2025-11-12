@@ -1,0 +1,32 @@
+{
+  "employees": {
+    "host": "localhost",
+    "port": 3306,
+    "user": "app_user",
+    "password": "Test@000",
+    "database": "employees",
+    "minsize": 2,
+    "maxsize": 10,
+    "autocommit": true
+  },
+  "world": {
+    "host": "localhost",
+    "port": 3306,
+    "user": "app_user",
+    "password": "Test@000",
+    "database": "world",
+    "minsize": 1,
+    "maxsize": 5,
+    "autocommit": true
+  },
+  "sakila": {
+    "host": "localhost",
+    "port": 3306,
+    "user": "app_user",
+    "password": "Test@000",
+    "database": "sakila",
+    "minsize": 1,
+    "maxsize": 5,
+    "autocommit": true
+  }
+}
