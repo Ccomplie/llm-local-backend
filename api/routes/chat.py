@@ -5,7 +5,8 @@
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from enum import Enum
+from typing import List, Optional, Dict, Any, Union
 import json
 import asyncio
 import logging
@@ -14,7 +15,7 @@ import time
 from utils.file_manager import store_uploaded_file, ensure_attachments_exist
 
 try:
-    from model_service.model_manager import ModelManager
+    from model_service.hybrid_model_manager import HybridModelManager as ModelManager
 except ImportError:
     from model_service.simple_model_manager import SimpleModelManager as ModelManager
 
@@ -35,11 +36,33 @@ class ChatRequest(BaseModel):
     top_p: Optional[float] = None
     stream: bool = False
 
+# class ChatResponse(BaseModel):
+#     """聊天响应模型"""
+#     message: str
+#     usage: Dict[str, int]
+#     model: str
+
+
+class TableResponse(BaseModel):
+    """表格响应模型"""
+    table_name: str
+    columns: List[str]
+    rows: List[Dict[str, Any]]
+
+class ToolType(str, Enum):
+    SQL_QUERY = "sql_query"
+    CALCULATOR = "calculator"
+    WEB_SEARCH = "web_search"
+    WEATHER = "weather"
+    CHART = "chart"
+
 class ChatResponse(BaseModel):
-    """聊天响应模型"""
-    message: str
-    usage: Dict[str, int]
-    model: str
+    tool_type: Optional[ToolType] = None
+    result: Optional[Union[TableResponse, str]] = None
+    message: str = ""
+    usage: Dict[str, int] = {}
+    model: str = ""
+
 
 def get_model_manager() -> ModelManager:
     """获取模型管理器依赖"""
@@ -210,7 +233,7 @@ async def chat_stream(
     )
 
 
-@router.post("/chat_func", response_model=ChatResponse, summary="发送聊天消息")
+@router.post("/chat/chat_func", response_model=ChatResponse, summary="发送聊天消息_含函数调用")
 async def chat_completion(
     request: ChatRequest,
     model_manager: ModelManager = Depends(get_model_manager)
@@ -223,14 +246,38 @@ async def chat_completion(
     
     try:
        
-        response = await func_call(model_manager, request.messages)
-        
-        logger.info(f"生成结果: \n{response}")
-        return ChatResponse(
-            message=response,
-            usage={"prompt_tokens": len(response.split()), "completion_tokens": len(response.split())},
-            model=await model_manager.get_current_model()
-        )
+        response_dict = await func_call(model_manager, request.messages)
+        if "message" in response_dict:
+            response = response_dict["message"]
+
+            logger.info(f"生成结果: \n{response}")
+            return ChatResponse(
+                message=response,
+                usage={"prompt_tokens": len(response.split()), "completion_tokens": len(response.split())},
+                model=await model_manager.get_current_model()
+            )
+        elif "sql" in response_dict:
+            sql_query = response_dict["sql"]
+            result = response_dict["response"]
+
+            #logger.info(f"生成结果: \nSQL: {sql_query}\nResponse: {sql_response}")
+            if isinstance(result, list) and len(result) > 0:
+                columns = list(result[0].keys())
+            else:
+                columns = []
+
+            return ChatResponse(
+                tool_type=ToolType.SQL_QUERY,
+                result=TableResponse(
+                    table_name="QueryResult",
+                    columns=columns,
+                    rows=result,
+                    model=await model_manager.get_current_model()
+                ),
+                message=f"SQL查询已执行，返回 {len(result)} 条结果。生成 SQL 语句：\n{sql_query}",
+                usage={"prompt_tokens": len(sql_query.split()), "completion_tokens": len(str(result).split())},
+                model=await model_manager.get_current_model()
+            )
         
     except Exception as e:
         logger.error(f"聊天生成失败: {e}")

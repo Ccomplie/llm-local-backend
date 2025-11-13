@@ -11,7 +11,7 @@ export const API_CONFIG = {
     CHAT: '/chat',
     CHAT_STREAM: '/chat/stream',
     CHAT_WS: '/chat/ws',
-    
+    CHAT_FUNC: '/chat/chat_func',
     // 健康检查
     HEALTH: '/health',
     HEALTH_DETAILED: '/health/detailed',

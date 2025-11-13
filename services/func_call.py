@@ -5,7 +5,6 @@ import json
 
 logger = logging.getLogger(__name__)
 
-
 TOOLS = [
     {
         "type": "function",
@@ -74,7 +73,7 @@ async def func_call(model_manager, messages):
 
         logger.info(f"Function Call Result: \n{json.dumps(result, ensure_ascii=False, indent=2)}")
         # 解析函数调用
-        print(type(result))
+       
         if isinstance(result, dict) and "message" in result:
             message = result["message"]
             
@@ -92,25 +91,25 @@ async def func_call(model_manager, messages):
                         database = clean_database_name(database)
 
                         query_desc = messages # 使用最后一条用户消息作为查询描述
-                        logger.info(f"SQL Query Description: {query_desc}")
+                        #logger.info(f"SQL Query Description: {query_desc}")
                         response, sql_query = await sql_generate_and_execute(
                             model_manager, database, query_desc
                         )
                     
-                        logger.info(f"Generated SQL: {sql_query}")
-                        logger.info(f"Executing SQL on database: {database}")
-                        logger.info(f"Executing response: {response}")
+                        #logger.info(f"Generated SQL: {sql_query}")
+                        #logger.info(f"Executing SQL on database: {database}")
+                        #logger.info(f"Executing response: {response}")
                         #return f"SQL查询结果: {response[:10000]}\n生成的SQL语句: {sql_query}"
-                        return sql_query
+                        return {"sql": sql_query, "response": response}
 
                     elif tool_call["function"]["name"] == "file_operation":
                         args = json.loads(tool_call["function"]["arguments"])
                         # 实现文件操作逻辑
-                        return "文件操作功能待实现"
+                        return {"message": "文件操作功能待实现"}
         else:
             logger.info("No function calls detected in the response.")
         # 如果没有函数调用，返回普通响应
-        return result.message.content if hasattr(result, 'message') else str(result)
+        return {"message": result.message.content if hasattr(result, 'message') else str(result) }
         
     # except Exception as e:
     #     logger.error(f"函数调用处理错误: {e}")
@@ -142,6 +141,7 @@ async def sql_generate_and_execute(model_manager, database: str, messages) -> st
     
     # 执行SQL查询
     result = await db_manager.execute_query(database, cleaned_sql) 
+    
     return result, cleaned_sql
 
 # def build_prompt_sql(query_desc: str, sql_sub_templates: Dict[str, str]) -> str:

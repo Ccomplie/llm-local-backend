@@ -351,7 +351,7 @@ class HybridModelManager:
         
         yield {"content": "", "done": True}
     
-    async def _generate_transformers_response(self, messages: List[Dict[str, str]], tools) -> Any:
+    async def _generate_transformers_response(self, messages: List[Dict[str, str]], stream=False, tools=None ) -> Any:
         """使用Transformers生成响应"""
         if not self.transformers_model or not self.transformers_tokenizer:
             raise RuntimeError("Transformers模型未加载")
@@ -373,6 +373,7 @@ class HybridModelManager:
         
         if stream:
             # 流式生成
+            logger.info("使用流式生成")
             return self._stream_transformers_generate(inputs)
         else:
             # 同步生成
@@ -399,72 +400,148 @@ class HybridModelManager:
                 "model": self.current_model
             }
     
-    async def _stream_transformers_generate(self, inputs) -> AsyncGenerator[Dict[str, Any], None]:
+    # async def _stream_transformers_generate(self, inputs) -> AsyncGenerator[Dict[str, Any], None]:
+    #     """流式Transformers生成响应"""
+    #     # 创建队列用于流式输出
+    #     from queue import Queue
+    #     output_queue = Queue()
+        
+    #     # 创建自定义流式处理器
+    #     class CustomStreamer(TextStreamer):
+    #         def __init__(self, tokenizer, queue, skip_prompt=True, **decode_kwargs):
+    #             super().__init__(tokenizer, skip_prompt=skip_prompt, **decode_kwargs)
+    #             self.queue = queue
+            
+    #         def on_finalized_text(self, text: str, stream_end: bool = False):
+    #             """当文本最终确定时调用"""
+    #             if text.strip():
+    #                 self.queue.put({
+    #                     "content": text,
+    #                     "done": stream_end
+    #                 })
+        
+    #     # 创建流式处理器
+    #     streamer = CustomStreamer(
+    #         self.transformers_tokenizer,
+    #         output_queue,
+    #         skip_prompt=True
+    #     )
+        
+    #     # 在后台线程中运行生成
+    #     import threading
+        
+    #     def generate_in_thread():
+    #         try:
+    #             with torch.no_grad():
+    #                 self.transformers_model.generate(
+    #                     inputs,
+    #                     max_new_tokens=2048,
+    #                     temperature=0.6,
+    #                     top_p=0.9,
+    #                     top_k=40,
+    #                     do_sample=True,
+    #                     pad_token_id=self.transformers_tokenizer.eos_token_id,
+    #                     streamer=streamer
+    #                 )
+    #             # 生成完成后发送结束标记
+    #             output_queue.put({"content": "", "done": True})
+    #         except Exception as e:
+    #             logger.error(f"Transformers流式生成失败: {e}")
+    #             output_queue.put({"content": f"生成失败: {str(e)}", "done": True})
+        
+    #     # 启动生成线程
+    #     thread = threading.Thread(target=generate_in_thread)
+    #     thread.daemon = True
+    #     thread.start()
+        
+    #     # 从队列中获取流式结果
+    #     while True:
+    #         try:
+    #             result = output_queue.get(timeout=30)  # 30秒超时
+    #             yield result
+    #             if result.get("done", False):
+    #                 break
+    #         except:
+    #             logger.warning("Transformers流式生成超时")
+    #             yield {"content": "", "done": True}
+    #             break
+
+    async def _stream_transformers_generate(self, inputs, **kwargs) -> AsyncGenerator[Dict[str, Any], None]:
         """流式Transformers生成响应"""
-        # 创建队列用于流式输出
-        from queue import Queue
-        output_queue = Queue()
+        """使用回调协程的 Transformers 流式生成"""
+        
+        # 创建事件来协调生成完成
+        generation_done = asyncio.Event()
+        chunks = []
         
         # 创建自定义流式处理器
-        class CustomStreamer(TextStreamer):
-            def __init__(self, tokenizer, queue, skip_prompt=True, **decode_kwargs):
-                super().__init__(tokenizer, skip_prompt=skip_prompt, **decode_kwargs)
-                self.queue = queue
+        class CallbackStreamer(TextStreamer):
+            def __init__(self, tokenizer, chunks_list, done_event, **kwargs):
+                super().__init__(tokenizer, **kwargs)
+                self.chunks = chunks_list
+                self.done_event = done_event
+                
             
             def on_finalized_text(self, text: str, stream_end: bool = False):
                 """当文本最终确定时调用"""
-                if text.strip():
-                    self.queue.put({
-                        "content": text,
-                        "done": stream_end
-                    })
-        
+                self.chunks.append({
+                    "content": text,
+                    "done": stream_end
+                })
+                if stream_end:
+                    if not self.done_event.is_set():
+                        asyncio.run_coroutine_threadsafe(
+                            self.done_event.set(),
+                            asyncio.get_event_loop()
+                        )
+            async def _set_done_event(self):
+                """协程方法设置事件"""
+                self.done_event.set()
+
         # 创建流式处理器
-        streamer = CustomStreamer(
+        streamer = CallbackStreamer(
             self.transformers_tokenizer,
-            output_queue,
-            skip_prompt=True
+            chunks,
+            generation_done,
+            skip_prompt=True,
+            skip_special_tokens=True
         )
         
         # 在后台线程中运行生成
-        import threading
-        
         def generate_in_thread():
             try:
                 with torch.no_grad():
                     self.transformers_model.generate(
                         inputs,
                         max_new_tokens=2048,
-                        temperature=0.6,
-                        top_p=0.9,
-                        top_k=40,
-                        do_sample=True,
-                        pad_token_id=self.transformers_tokenizer.eos_token_id,
-                        streamer=streamer
+                        streamer=streamer,
                     )
-                # 生成完成后发送结束标记
-                output_queue.put({"content": "", "done": True})
             except Exception as e:
-                logger.error(f"Transformers流式生成失败: {e}")
-                output_queue.put({"content": f"生成失败: {str(e)}", "done": True})
+                logger.error(f"Transformers生成失败: {e}")
+                chunks.append({"content": f"生成失败: {str(e)}", "done": True})
+                asyncio.run_coroutine_threadsafe(
+                    generation_done.set(),
+                    asyncio.get_event_loop()
+                )
         
         # 启动生成线程
+        import threading
         thread = threading.Thread(target=generate_in_thread)
         thread.daemon = True
         thread.start()
         
-        # 从队列中获取流式结果
-        while True:
-            try:
-                result = output_queue.get(timeout=30)  # 30秒超时
-                yield result
-                if result.get("done", False):
+        # 流式返回结果
+        chunk_index = 0
+        while not generation_done.is_set() or chunk_index < len(chunks):
+            if chunk_index < len(chunks):
+                yield chunks[chunk_index]
+                if chunks[chunk_index].get("done", False):
                     break
-            except:
-                logger.warning("Transformers流式生成超时")
-                yield {"content": "", "done": True}
-                break
-    
+                chunk_index += 1
+            else:
+                await asyncio.sleep(0.001)  # 短暂等待新数据
+
+
     async def generate_text(self, messages: List[Dict[str, str]], **kwargs) -> str:
         """生成文本（兼容接口）"""
         try:
@@ -476,7 +553,7 @@ class HybridModelManager:
             raise
 
     async def generate_func_call(self, prompt: str, tools, **kwargs) -> str:
-        """生成文本（兼容接口）"""
+        """生成函数调用（兼容接口）"""
         try:
             messages = [{"role": "user", "content": prompt}]
 
@@ -532,8 +609,22 @@ class HybridModelManager:
                             continue
                             
             elif self.current_model_type == 'transformers':
-                # 使用真正的Transformers流式生成
-                async for chunk in self._generate_transformers_response(messages, stream=True):
+            # 直接在 generate_stream 中实现 Transformers 流式逻辑
+                if not self.transformers_model or not self.transformers_tokenizer:
+                    raise RuntimeError("Transformers模型未加载")
+                
+                input_text = self.transformers_tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+                
+                inputs = self.transformers_tokenizer.encode(input_text, return_tensors="pt")
+                if torch.cuda.is_available():
+                    inputs = inputs.cuda()
+                
+                # 直接调用流式生成方法
+                async for chunk in self._stream_transformers_generate(inputs, **kwargs):
                     content = chunk.get("content", "")
                     if content:
                         yield content
@@ -640,22 +731,39 @@ class HybridModelManager:
         if not self.transformers_model or not self.transformers_tokenizer:
             raise RuntimeError("Transformers模型未加载")
         
-        # 应用聊天模板，启用思考模式
-        input_text = self.transformers_tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True,
-            enable_thinking=True,  # 启用思考模式以支持函数调用
-            tools=tools
-        )
-
-        # 添加工具描述到提示词
-        # if tools:
-        #     tools_desc = "\n可用工具:\n" + "\n".join([
-        #         f"- {tool['function']['name']}: {tool['function']['description']}"
-        #         for tool in tools
-        #     ])
-        #     input_text += tools_desc + "\n\n请根据用户需求选择合适的工具进行调用。"
+        if "qwen3" in self.current_model.lower():
+            # 应用聊天模板，启用思考模式, qwen3模型支持函数调用，但必须开启深度思考
+            input_text = self.transformers_tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+                enable_thinking=True,  # 启用思考模式以支持函数调用
+                tools=tools
+            )
+        else:
+            # 应用聊天模板，禁用思考模式
+            messages.append({
+                "role": "system",
+                "content": "你是一个支持函数调用的AI助手。请根据用户需求选择合适的工具进行调用, 调用的结果以json格式返回。"
+            })
+            tools_desc = "\n可用工具以XML格式给出:\n" + "\n".join([
+                f"- {tool['function']['name']}: {tool['function']['description']}"
+                for tool in tools
+            ])
+            tools_desc += "\n\n请根据用户需求选择合适的工具进行调用。"
+            messages.append({
+                "role": "system",
+                "content": tools_desc
+            })
+            
+            input_text = self.transformers_tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+                enable_thinking=False,  # 禁用思考模式
+            )
+            # 添加工具描述到提示词
+           
         
 
         logger.info(f"\nTransformers函数调用输入文本: \n\n{input_text}")
@@ -711,8 +819,9 @@ class HybridModelManager:
 def parse_function_call(response_text: str) -> Optional[Dict]:
     """解析函数调用响应"""
     logger.info(f"待解析函数调用文本: {response_text}")
-    response_text = response_text.lower().split("tool_call")[-2].strip()
-    
+    if "tool_call" in response_text.lower():
+        response_text = response_text.lower().split("tool_call")[-2].strip()
+    0
     try:
 
         # 简单的函数调用解析逻辑

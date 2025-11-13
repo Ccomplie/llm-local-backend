@@ -39,19 +39,19 @@ import {
 } from '@ant-design/icons';
 import styled, { ThemeProvider } from 'styled-components';
 import { DefaultTheme } from 'styled-components';
-import { modelAPI, chatAPI } from '../services/api';
+import { modelAPI, chatAPI, chatFuncAPI } from '../services/api';
 
 const { TextArea } = Input;
 const { Text, Title } = Typography;
 const { Option } = Select;
 
-interface Message {
-  id: string;
-  type: 'user' | 'agent';
-  content: string;
-  timestamp: string;
-  status?: 'sending' | 'sent' | 'error';
-}
+// interface Message {
+//   id: string;
+//   type: 'user' | 'agent';
+//   content: string;
+//   timestamp: string;
+//   status?: 'sending' | 'sent' | 'error';
+// }
 
 interface AgentModel {
   id: string;
@@ -93,7 +93,39 @@ interface StreamChunk {
   text?: string;
 }
 
+
+interface TableData {
+  table_name: string;
+  columns: string[];
+  rows: Record<string, any>[];
+}
+
+interface ChatFuncResponse {
+  tool_type?: string;
+  result?: TableData | string;
+  message: string;
+  usage: Record<string, number>;
+  model: string;
+}
+
+// 2. 修改 Message 接口，添加表格数据
+interface Message {
+  id: string;
+  type: 'user' | 'agent';
+  content: string;
+  timestamp: string;
+  status?: 'sending' | 'sent' | 'error';
+  tableData?: TableData; // 新增表格数据字段
+}
+
+
+
+
+
+
 const AgentChatPage: React.FC = () => {
+  
+  const [currentResponse, setCurrentResponse] = useState<ChatFuncResponse | null>(null);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -279,23 +311,133 @@ const AgentChatPage: React.FC = () => {
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim()) return;
+//   const handleSendMessage = async () => {
+//     if (!inputValue.trim()) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      type: 'user',
-      content: inputValue,
-      timestamp: new Date().toLocaleTimeString(),
-      status: 'sent',
-    };
+//     const userMessage: Message = {
+//       id: Date.now().toString(),
+//       type: 'user',
+//       content: inputValue,
+//       timestamp: new Date().toLocaleTimeString(),
+//       status: 'sent',
+//     };
 
-    setMessages(prev => [...prev, userMessage]);
-    const currentInput = inputValue;
-    setInputValue('');
-    setIsLoading(true);
+//     setMessages(prev => [...prev, userMessage]);
+//     const currentInput = inputValue;
+//     setInputValue('');
+//     setIsLoading(true);
 
-    try {
+//     try {
+//     // 构建消息历史
+//     const messageHistory = [
+//       ...messages.map(msg => ({
+//         role: msg.type === 'user' ? 'user' : 'assistant',
+//         content: msg.content
+//       })),
+//       { role: 'user', content: currentInput }
+//     ];
+
+//     console.log('发送消息历史:', messageHistory);
+
+//     // 使用流式API调用大模型
+//     setIsStreaming(true);
+//     setStreamingMessage('');
+    
+//     let fullResponse = '';
+//     console.log('开始流式调用...');
+    
+//       try {
+//       const stream = chatAPI.sendMessageStream(messageHistory, {
+//         maxTokens: 1000,
+//         temperature: 0.7,
+//         topP: 0.9
+//       });
+
+//       for await (const chunk of stream) {
+//         console.log('收到完整chunk数据:', chunk);
+        
+//         // 使用类型断言告诉TypeScript chunk的类型
+//         const streamChunk = chunk as StreamChunk;
+        
+//         let token = '';
+//         if (streamChunk.token) {
+//           token = streamChunk.token;
+//         } else if (streamChunk.choices?.[0]?.delta?.content) {
+//           token = streamChunk.choices[0].delta.content;
+//         } else if (streamChunk.content) {
+//           token = streamChunk.content;
+//         } else if (streamChunk.text) {
+//           token = streamChunk.text;
+//         }
+        
+//         if (token) {
+//           fullResponse += token;
+//           // 使用函数式更新确保状态正确
+//           setStreamingMessage(fullResponse);
+          
+//           // 添加微小延迟确保UI更新
+//           await new Promise(resolve => requestAnimationFrame(resolve));
+//         }
+//       }
+//     } catch (streamError) {
+//       console.error('流式调用失败:', streamError);
+//       // 回退到普通API
+//       const response = await chatAPI.sendMessage(messageHistory, {
+//         maxTokens: 1000,
+//         temperature: 0.7,
+//         topP: 0.9
+//       });
+//       fullResponse = response.message || '抱歉，无法获取回复';
+//       setStreamingMessage(fullResponse);
+//     }
+    
+//     console.log('完整回复:', fullResponse);
+
+//     // 添加完整的回复到消息列表
+//     const agentMessage: Message = {
+//       id: (Date.now() + 1).toString(),
+//       type: 'agent',
+//       content: fullResponse,
+//       timestamp: new Date().toLocaleTimeString(),
+//       status: 'sent',
+//     };
+//     setMessages(prev => [...prev, agentMessage]);
+    
+//   } catch (error) {
+//     console.error('发送消息失败:', error);
+//     const errorMessage: Message = {
+//       id: (Date.now() + 1).toString(),
+//       type: 'agent',
+//       content: '抱歉，我暂时无法回复您的消息。请检查后端服务状态或稍后重试。',
+//       timestamp: new Date().toLocaleTimeString(),
+//       status: 'error',
+//     };
+//     setMessages(prev => [...prev, errorMessage]);
+//   } finally {
+//     setIsLoading(false);
+//     setIsStreaming(false);
+//     setStreamingMessage('');
+//   }
+// };
+
+const handleSendMessage = async () => {
+  if (!inputValue.trim()) return;
+
+  const userMessage: Message = {
+    id: Date.now().toString(),
+    type: 'user',
+    content: inputValue,
+    timestamp: new Date().toLocaleTimeString(),
+    status: 'sent',
+  };
+
+  setMessages(prev => [...prev, userMessage]);
+  const currentInput = inputValue;
+  setInputValue('');
+  setIsLoading(true);
+  setCurrentResponse(null); // 清空之前的响应
+
+  try {
     // 构建消息历史
     const messageHistory = [
       ...messages.map(msg => ({
@@ -307,69 +449,31 @@ const AgentChatPage: React.FC = () => {
 
     console.log('发送消息历史:', messageHistory);
 
-    // 使用流式API调用大模型
-    setIsStreaming(true);
-    setStreamingMessage('');
-    
-    let fullResponse = '';
-    console.log('开始流式调用...');
-    
-      try {
-      const stream = chatAPI.sendMessageStream(messageHistory, {
-        maxTokens: 1000,
-        temperature: 0.7,
-        topP: 0.9
-      });
+    // 使用功能调用API
+    const response: ChatFuncResponse = await chatFuncAPI.sendMessage(messageHistory, {
+      maxTokens: 1000,
+      temperature: 0.7,
+      topP: 0.9
+    });
 
-      for await (const chunk of stream) {
-        console.log('收到完整chunk数据:', chunk);
-        
-        // 使用类型断言告诉TypeScript chunk的类型
-        const streamChunk = chunk as StreamChunk;
-        
-        let token = '';
-        if (streamChunk.token) {
-          token = streamChunk.token;
-        } else if (streamChunk.choices?.[0]?.delta?.content) {
-          token = streamChunk.choices[0].delta.content;
-        } else if (streamChunk.content) {
-          token = streamChunk.content;
-        } else if (streamChunk.text) {
-          token = streamChunk.text;
-        }
-        
-        if (token) {
-          fullResponse += token;
-          // 使用函数式更新确保状态正确
-          setStreamingMessage(fullResponse);
-          
-          // 添加微小延迟确保UI更新
-          await new Promise(resolve => requestAnimationFrame(resolve));
-        }
-      }
-    } catch (streamError) {
-      console.error('流式调用失败:', streamError);
-      // 回退到普通API
-      const response = await chatAPI.sendMessage(messageHistory, {
-        maxTokens: 1000,
-        temperature: 0.7,
-        topP: 0.9
-      });
-      fullResponse = response.message || '抱歉，无法获取回复';
-      setStreamingMessage(fullResponse);
-    }
-    
-    console.log('完整回复:', fullResponse);
+    console.log('功能调用响应:', response);
 
-    // 添加完整的回复到消息列表
+    // 创建代理消息
     const agentMessage: Message = {
       id: (Date.now() + 1).toString(),
       type: 'agent',
-      content: fullResponse,
+      content: response.message,
       timestamp: new Date().toLocaleTimeString(),
       status: 'sent',
     };
+
+    // 如果有表格数据，添加到消息中
+    if (response.tool_type === 'sql_query' && typeof response.result !== 'string') {
+      agentMessage.tableData = response.result as TableData;
+    }
+
     setMessages(prev => [...prev, agentMessage]);
+    setCurrentResponse(response);
     
   } catch (error) {
     console.error('发送消息失败:', error);
@@ -383,10 +487,87 @@ const AgentChatPage: React.FC = () => {
     setMessages(prev => [...prev, errorMessage]);
   } finally {
     setIsLoading(false);
-    setIsStreaming(false);
-    setStreamingMessage('');
   }
 };
+
+// 5. 添加表格渲染组件
+const renderTable = (tableData: TableData) => {
+  if (!tableData || !tableData.columns || !tableData.rows) return null;
+
+  // 限制表格大小为5行10列
+  const displayColumns = tableData.columns.slice(0, 10);
+  const displayRows = tableData.rows.slice(0, 5);
+
+  return (
+    <div style={{ marginTop: 16, border: '1px solid #d9d9d9', borderRadius: 6 }}>
+      <div style={{ 
+        padding: '8px 12px', 
+        backgroundColor: '#f5f5f5', 
+        borderBottom: '1px solid #d9d9d9',
+        fontWeight: 'bold'
+      }}>
+        {tableData.table_name} ({displayRows.length} 行 × {displayColumns.length} 列)
+      </div>
+      <div style={{ overflow: 'auto', maxHeight: 300 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ backgroundColor: '#fafafa' }}>
+              {displayColumns.map((column, index) => (
+                <th 
+                  key={index}
+                  style={{
+                    padding: '8px 12px',
+                    border: '1px solid #d9d9d9',
+                    textAlign: 'left',
+                    fontWeight: 600,
+                    fontSize: '12px',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {column}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {displayRows.map((row, rowIndex) => (
+              <tr key={rowIndex}>
+                {displayColumns.map((column, colIndex) => (
+                  <td
+                    key={colIndex}
+                    style={{
+                      padding: '8px 12px',
+                      border: '1px solid #d9d9d9',
+                      fontSize: '12px',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {row[column] !== null && row[column] !== undefined 
+                      ? String(row[column])
+                      : 'NULL'
+                    }
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {(tableData.rows.length > 5 || tableData.columns.length > 10) && (
+        <div style={{ 
+          padding: '8px 12px', 
+          backgroundColor: '#fffbe6', 
+          borderTop: '1px solid #ffe58f',
+          fontSize: '12px',
+          color: '#666'
+        }}>
+          提示: 表格已截断，显示前5行前10列（共 {tableData.rows.length} 行 × {tableData.columns.length} 列）
+        </div>
+      )}
+    </div>
+  );
+};
+
 
 
   const handleQuickQuestion = (question: string) => {
@@ -640,42 +821,53 @@ const AgentChatPage: React.FC = () => {
                   maxHeight: '500px',
                   scrollBehavior: 'smooth'
                 }} className="messages-container">
+                  
                   {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className="message-item"
-                      style={{
-                        display: 'flex',
-                        justifyContent: message.type === 'user' ? 'flex-end' : 'flex-start',
-                        marginBottom: 16,
-                      }}
-                    >
-                      <div style={{ maxWidth: '70%', display: 'flex', alignItems: 'flex-start' }}>
-                        {message.type === 'agent' && (
-                          <Avatar 
-                            icon={<RobotOutlined />} 
-                            style={{ marginRight: 8, backgroundColor: '#1890ff' }}
-                          />
-                        )}
-                        <MessageBubble isUser={message.type === 'user'}>
-                          <div style={{
-                            padding: '12px 16px',
-                            whiteSpace: 'pre-wrap',
-                            lineHeight: 1.5,
-                            color: message.type === 'user' ? '#ffffff' : '#000000',
-                          }}>
-                            {message.content}
+                      <div
+                        key={message.id}
+                        className="message-item"
+                        style={{
+                          display: 'flex',
+                          justifyContent: message.type === 'user' ? 'flex-end' : 'flex-start',
+                          marginBottom: 16,
+                        }}
+                      >
+                        <div style={{ 
+                          maxWidth: '90%', 
+                          display: 'flex', 
+                          alignItems: 'flex-start',
+                          flexDirection: 'column'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                            {message.type === 'agent' && (
+                              <Avatar 
+                                icon={<RobotOutlined />} 
+                                style={{ marginRight: 8, backgroundColor: '#1890ff' }}
+                              />
+                            )}
+                            <MessageBubble isUser={message.type === 'user'}>
+                              <div style={{
+                                padding: '12px 16px',
+                                whiteSpace: 'pre-wrap',
+                                lineHeight: 1.5,
+                                color: message.type === 'user' ? '#ffffff' : '#000000',
+                              }}>
+                                {message.content}
+                              </div>
+                            </MessageBubble>
+                            {message.type === 'user' && (
+                              <Avatar 
+                                icon={<UserOutlined />} 
+                                style={{ marginLeft: 8, backgroundColor: '#52c41a' }}
+                              />
+                            )}
                           </div>
-                        </MessageBubble>
-                        {message.type === 'user' && (
-                          <Avatar 
-                            icon={<UserOutlined />} 
-                            style={{ marginLeft: 8, backgroundColor: '#52c41a' }}
-                          />
-                        )}
+                          {/* 添加表格显示 */}
+                          {message.tableData && renderTable(message.tableData)}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+
                   {isLoading && (
                     <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 16 }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start' }}>
@@ -1241,6 +1433,9 @@ interface ThemeColors {
     dark: string;
   };
 }
+
+
+
 
 interface ThemeTransitions {
   duration: {

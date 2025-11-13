@@ -208,6 +208,35 @@ export class ChatAPI {
   }
 }
 
+
+export class ChatFuncAPI {
+  private baseUrl = API_CONFIG.BASE_URL;
+
+  // 发送功能调用聊天消息
+  async sendMessage(messages: Array<{role: string, content: string}>, options: {maxTokens?: number, temperature?: number, topP?: number} = {}) {
+    const response = await fetch(`${this.baseUrl}${API_CONFIG.ENDPOINTS.CHAT_FUNC}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages: messages,
+        max_tokens: options.maxTokens || 1000,
+        temperature: options.temperature || 0.7,
+        top_p: options.topP || 0.9,
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  }
+}
+
+
+
+
 // 导出API实例
 // 算力资源管理API
 export class ComputingAPI {
@@ -400,6 +429,7 @@ export class ModelServiceAPI {
 
 export const modelAPI = new ModelAPI();
 export const chatAPI = new ChatAPI();
+export const chatFuncAPI = new ChatFuncAPI();
 export const computingAPI = new ComputingAPI();
 export const storageAPI = new StorageAPI();
 export const systemAPI = new SystemAPI();
